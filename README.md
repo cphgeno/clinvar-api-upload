@@ -132,3 +132,7 @@ To delete / remove from ClinVar any variants previously submitted, the `main.py`
 # Example use
 python main.py -f ..\data\variants_to_delete.txt -s delete
 ```
+
+
+## Questions
+All enquiries about the code can be directed to @lprob

@@ -1,17 +1,14 @@
 # ClinVar API upload
 [ClinVar](https://www.ncbi.nlm.nih.gov/clinvar/) is a public archive of genetic variants and phenotypes, including variant classification with respect to health and disease.
 
-This repository includes scripts to facilitate easy extraction of classified variants from a [VarSeq Assessment Catalog](https://www.goldenhelix.com/products/VarSeq/) and submission to ClinVar via their [API](https://www.ncbi.nlm.nih.gov/clinvar/docs/api_http/).
-
-[[_TOC_]]
-
+This repository includes scripts to enable easy extraction of classified variants from a [VarSeq Assessment Catalog](https://www.goldenhelix.com/products/VarSeq/) and submission to ClinVar via their [API](https://www.ncbi.nlm.nih.gov/clinvar/docs/api_http/).
 
 
 ## Usage
 
 ### How to submit variants to ClinVar
 
-##### Workflow overview and background
+#### Workflow overview and background
 
 1. Extract variants from the VarSeq Assessment Catalog
 
@@ -73,7 +70,7 @@ Output produced by `main.py`
     * cleaned inputted file of variants;
     * file containing all uploaded, formatted haplotypes;
     * individual *json* files, one per batch, containing the submitted data, saved under the submission ID of each batch, indicating whether the data are variants or haplotypes and if novel or updates (e.g. `SUBid_[variants|haplotypes]_[novel|update].json`);
-    * a `summaries_list_[novel|update].txt` file is generated. It contains the paths to the summary report jsons of all batches submitted succesfully. The "novel" file is used to [annotate the data](#3-data-annotation-and-upload-to-gitlab), following the json retrieval.
+    * a `summaries_list_[novel|update].txt` file is generated. It contains the paths to the summary report jsons of all batches submitted succesfully. The "novel" file is used to [annotate the data](#3-data-annotation), following the json retrieval.
 * Failed submission: a file containing the errors that led to the failure will be created for each failed batch. In this case, the failed batch is not submitted to the API.
 
 ```shell

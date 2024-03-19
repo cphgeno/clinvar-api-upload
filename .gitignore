@@ -1,0 +1,10 @@
+**.json
+**.key
+**.txt
+
+# python files
+*.pyc
+**/__pycache__
+
+# folders
+./temp

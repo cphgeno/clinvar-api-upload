@@ -1,0 +1,3 @@
+# Example of haplotypes file produced by the scripts (after annotation)
+hgvs c.	Classification	Variants	hgvs p.	Last Edited	SCV
+NM_000051.3:c.3245_3247delinsTGAT	Pathogenic	NM_000051.4:c.3244_3245insTG, NM_000051.4:c.3247delC	NP_000042.3:p.His1082fs*14	2024-01-31	SCV004242580

@@ -1,0 +1,3 @@
+# Example of variants file produced by the scripts (after annotation)
+#Chromosome	Start	Stop	Ref/Alt	Classification	hgvs p.	hgvs c.	Last Edited	SCV
+1	1535722	1535723	G/A	Unknown Significance	NP_001108220.1:p.Thr80Met	NM_001114748.2:c.239C>T	2024-01-31	SCV004243082

@@ -33,8 +33,8 @@ def parse_arguments():
         "-r",
         "--reference_file",
         help="Path for reference file (GitLab), annotated with SCV numbers from previous uploads",
-        type=Path,
-        required=True
+        type=Path
+        # required=True
     )
     parser.add_argument(
         "-t",
@@ -48,6 +48,11 @@ def parse_arguments():
         help="Date of extraction of variants from VarSeq (API upload date does not reflect this as always done with some delay)",
         required = True
     )
+    parser.add_argument(
+        "--somatic",
+        help="If somatic catalogue is to be annotated, pass this flag",
+        action="store_true"
+    )
     return parser
 
 
@@ -58,7 +63,8 @@ def get_new_annotation(summary_report, annotation_dict, date_string):
 
     Parameters:
         summary_report: path to the summary report json file returned from "check_submission.py" script.
-        annotation_dict: initial dictionary containing for each submitted variant the corresponding SCV accession number.
+        annotation_dict: initial dictionary containing annotation from reference file.
+        date_string: date of upload, for further annotation.
     
     Return:
         annotation_dict: updated dictionary containing for each submitted variant the corresponding SCV accession number from the current report summary json file parsed.
@@ -99,14 +105,15 @@ def annotate_from_ref(reference_file):
         partial_annotation: dictionary where variant's ID contains its SCV accession number.
     """
     partial_annotation = {}
-    with open(reference_file, "r", encoding="utf-8") as ref:
-        for line in csv.DictReader(ref, delimiter="\t"):
-            if len(line["hgvs c."]) > 0:
-                ID = line["hgvs c."].split(",")[0] #if multiple hgvs c. are present, the first is considered the correct one by default and matching to the reference file
-            else:
-                ID = get_id(line)
-            SCV = line["SCV"]
-            partial_annotation[ID] = {"SCV": SCV, "Last Edited": line["Last Edited"]}
+    if reference_file:
+        with open(reference_file, "r", encoding="utf-8") as ref:
+            for line in csv.DictReader(ref, delimiter="\t"):
+                if len(line["hgvs c."]) > 0:
+                    ID = line["hgvs c."].split(",")[0] #if multiple hgvs c. are present, the first is considered the correct one by default and matching to the reference file
+                else:
+                    ID = get_id(line)
+                SCV = line["SCV"]
+                partial_annotation[ID] = {"SCV": SCV, "Last Edited": line["Last Edited"]}
     return partial_annotation
 
 
@@ -176,10 +183,11 @@ def annotate_file(summary_reports, input_file, reference_file, output_file, vari
         annotation = get_new_annotation(f, annotation, date_string)
     all_rows = []
     if variant_type == "haplotypes": #read from the old annotated file the previous uploaded haplotypes to then be copied in the new file
-        with open(reference_file, encoding="utf-8", mode="r+") as old_haplotypes:
-            csv_reader = csv.DictReader(old_haplotypes, delimiter="\t")
-            for row in csv_reader:
-                all_rows.append(row)
+        if reference_file:
+            with open(reference_file, encoding="utf-8", mode="r+") as old_haplotypes:
+                csv_reader = csv.DictReader(old_haplotypes, delimiter="\t")
+                for row in csv_reader:
+                    all_rows.append(row)
     with open(input_file, encoding="utf-8", mode="r+") as non_annotated:
         csv_reader = csv.DictReader(non_annotated, delimiter="\t")
         if "SCV" not in csv_reader.fieldnames:
@@ -223,7 +231,7 @@ if __name__ == "__main__":
         sys.exit(1)
     
     if args.output_file is None:
-        args.output_file = Path(f'data\{args.variant_type}_uploaded_annotated_{date_of_interest}.tsv')
+        args.output_file = Path(f'data\{"somatic" if args.somatic else "germline"}_{args.variant_type}_uploaded_annotated_{date_of_interest}.tsv')
     else: #check it is saved in 'data' folder
         if args.output_file.split("\\")[0] != "data":
             args.output_file = f'data\\{args.output_file}'

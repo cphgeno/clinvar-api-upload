@@ -8,15 +8,18 @@ from pathlib import Path
 import helper_functions, check_input, check_for_updates
 from datetime import datetime
 
-os.makedirs(".\\temp\\")
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Provide data to be uploaded and reference file.")
     parser.add_argument(
-        "-f",
-        "--file",
-        help="Path to VarSeq Assessment Catalog exported tsv",
-        required=True
+        "-fg",
+        "--file_germline",
+        help="Path to VarSeq Assessment Catalog exported tsv for germline variants"
+    )
+    parser.add_argument(
+        "-fs",
+        "--file_somatic",
+        help="Path to VarSeq Assessment Catalog exported tsv for somatic variants"
     )
     parser.add_argument(
         "-k",
@@ -40,13 +43,11 @@ def parse_arguments():
     )
     parser.add_argument(
         "--reference_variants",
-        help="Reference file, containing variants that have already been uploaded, required for update, can be found on the GitLab repository",
-        required=True
+        help="Reference file, containing variants that have already been uploaded, required for update, can be found on the GitLab repository"
     )
     parser.add_argument(
         "--reference_haplotypes",
-        help="Reference file, containing haplotypes that have already been uploaded, required for update, can be found on the GitLab repository",
-        required=True
+        help="Reference file, containing haplotypes that have already been uploaded, required for update, can be found on the GitLab repository"
     )
     parser.add_argument(
         "-b",
@@ -57,13 +58,13 @@ def parse_arguments():
     )
     parser.add_argument(
         "--date_of_extraction",
-        help="Date of extraction of variants from VarSeq (API upload date does not reflect this as always done with some delay) - important for data anonimisation",
-        required=True
+        help="Date of extraction of variants from VarSeq (API upload date does not reflect this as always done with some delay)",
+        required = True
     )
     return parser
 
 
-def submit_request(list_of_variants, submission_url, headers, deletion = False):
+def submit_request(list_of_variants, submission_url, headers, variant_type, deletion = False):
     """Function to post the request for submission of each batch of variants.
     If the deletion argument is set to True, the function posts the request for the deletion of the submitted variants.
 
@@ -77,14 +78,24 @@ def submit_request(list_of_variants, submission_url, headers, deletion = False):
         Response object (dict) from the attempted submission."""
 
     if not deletion:
-        content = {
-            "clinvarSubmission": list_of_variants,
-            "clinvarSubmissionReleaseStatus": "public",
-            "assertionCriteria":{
-                "db": "PubMed",
-                "id": "" # INSERT: PubMed id of the article for assertion criteria
+        if variant_type == "germline":
+            content = {
+                "germlineSubmission": list_of_variants,
+                "clinvarSubmissionReleaseStatus": "public",
+                "assertionCriteria":{
+                    "db": "PubMed",
+                    "id": "25741868" #PubMed id of the article for assertion criteria
+                }
             }
-        }
+        else:
+            content = {
+                "oncogenicitySubmission": list_of_variants,
+                "clinvarSubmissionReleaseStatus": "public",
+                "assertionCriteria":{
+                    "db": "PubMed",
+                    "id": "35101336" #PubMed id of the article for assertion criteria
+                }
+            }
     else:
         content = {"clinvarDeletion": list_of_variants}
     data = {
@@ -96,7 +107,8 @@ def submit_request(list_of_variants, submission_url, headers, deletion = False):
     return response
 
 
-def submit_variants(variants_list, variant_status, haplo = False):
+
+def submit_variants(variants_list, variant_type, variant_status, haplo = False):
     """Wrapper function responible for uploading the novel or updated variants.
 
     Parameters:
@@ -116,7 +128,7 @@ def submit_variants(variants_list, variant_status, haplo = False):
     headers = {"Content-Type": "application/json", "SP-API-KEY": api_key}
 
     if variant_status == "delete":
-        response = submit_request(variants_list, submission_url, headers, deletion = True)
+        response = submit_request(variants_list, submission_url, headers, variant_type, deletion = True)
         print(f"Response ({variant_status}): {response.status_code}")
         sub_id = response.text.strip("{}").split(":")[1].strip('"')
         print(f"Submission id: {sub_id}")
@@ -126,12 +138,13 @@ def submit_variants(variants_list, variant_status, haplo = False):
     print(f"[INFO]: Submitting variants for upload ({variant_status})...")
     responses = []
     variants_number = len(variants_list)
-    variants_list = [
+    variants_batches = [
         variants_list[i : i + args.batch_size]
         for i in range(0, len(variants_list), args.batch_size)
     ]
-    for batch in variants_list:
-        responses.append(submit_request(batch, submission_url, headers))
+    for batch in variants_batches:
+        responses.append(submit_request(batch, submission_url, headers, variant_type))
+    
     # -------on-screen message
     print(f'{"Live run" if args.dryrun == False else "Dry run"} at: {submission_url}')
     print(f"Number variants submitted: {variants_number}")
@@ -151,17 +164,17 @@ def submit_variants(variants_list, variant_status, haplo = False):
                 output_file.write("\n")
                 output_file.write(response.text)
         else:
-            data = json.dumps(variants_list, indent=2)
-            with open(f'temp\\{sub_id}_{"variants" if not haplo else "haplotypes"}_{variant_status}.json', mode="w") as output_file:
+            data = json.dumps(variants_batches, indent=2)
+            with open(f'temp\\{sub_id}-{variant_type}_{"variants" if not haplo else "haplotypes"}_{variant_status}.json', mode="w") as output_file:
                 header = dict(response.headers)
                 header["Total number of variants submitted"] = variants_number
                 output_file.write(json.dumps(header, indent=2))
                 output_file.write(data)
             report_json = f'temp\\{sub_id}-summary-report.json {"variants" if not haplo else "haplotypes"}'
-        if haplo and variant_status=="novel":
-            helper_functions.write_haplotypes_file(haplos_novel, "temp\haplotypes_uploaded.txt", date_of_extraction)
-        summaries_list.append(report_json)
-        file_path = f'temp\summaries_list_{variant_status}.txt'
+            summaries_list.append(report_json)
+        # if haplo and variant_status=="novel":
+        #     helper_functions.write_haplotypes_file(variants_list, f"temp\{variant_type}_haplotypes_uploaded.txt", date_of_extraction)
+        file_path = f'temp\{variant_type}_summaries_list_{variant_status}.txt'
         with open(file_path, mode = 'a' if os.path.exists(file_path) else 'w') as summaries_file:
             #writes file with summary jsons path to be used for annotation
             for json_file in summaries_list:
@@ -169,6 +182,7 @@ def submit_variants(variants_list, variant_status, haplo = False):
                 summaries_file.write("\n")
         print("[INFO]: Variant submission to ClinVar API completed!")
         print("------IMPORTANT! Remember to annotate the data after successful upload------ \n \n")
+
 
 # ----------main execution-------------------
 if __name__ == "__main__":
@@ -180,10 +194,19 @@ if __name__ == "__main__":
             parser.error("The --reference_variants flag is required to update the variants")
         if args.reference_haplotypes is None:
             parser.error("The --reference_haplotypes flag is required to update the haplotypes")
+    
+    if args.file_germline:
+        variant_type = "germline"
+        input_catalogue = args.file_germline
+    elif args.file_somatic:
+        variant_type = "somatic"
+        input_catalogue = args.file_somatic
+    else:
+        parser.error("NO input file provided")
+
     if len(args.date_of_extraction) == 10:
         try:
             datetime.strptime(args.date_of_extraction, '%Y-%m-%d')
-            # date_check = bool(date_parser.parse(args.date_of_extraction))
             date_of_extraction = args.date_of_extraction
         except ValueError:
             print("Error: Date of extraction must be in format %YYYY-%mm-%dd")
@@ -192,16 +215,19 @@ if __name__ == "__main__":
         print("Error: Date of extraction must be in format %YYYY-%mm-%dd")
         sys.exit(1)
     
+    if not os.path.exists(".\\temp\\"):
+        os.makedirs(".\\temp\\")
+
     if args.status == "delete":
         print("[INFO]: Submitting variants to be deleted...")
-        with open(args.file, encoding="utf-8", mode="r") as input_tsv:
+        with open(input_catalogue, encoding="utf-8", mode="r") as input_tsv:
             csv_reader = csv.DictReader(input_tsv, delimiter="\t")
             scv_list = [variant["SCV"] for variant in csv_reader]
         variants_list = helper_functions.format_deletion(scv_list)
-        submit_variants(variants_list, variant_status = "delete")
+        submit_variants(variants_list, variant_type, variant_status = "delete")
     else: #in case of upload/update
-        print(f"[INFO]: Cleaning data from {args.file}...")
-        input_file, haplotypes_dict = check_input.clean_data(args.file)
+        print(f"[INFO]: Cleaning data from {input_catalogue}...")
+        input_file, haplotypes_dict = check_input.clean_data(input_catalogue)
         if args.status == "update":
             variants_novel, variants_update = check_for_updates.compare_variants(
                 input_file, args.reference_variants, date_of_extraction
@@ -211,9 +237,10 @@ if __name__ == "__main__":
             if len(variants_novel) != 0:
                 print(len(variants_novel))
                 # print(variants_novel)
-                variants_novel_formatted = helper_functions.convert_variant(variants_novel, date_of_extraction)
+                variants_novel_formatted = helper_functions.convert_variant(variants_novel, date_of_extraction, 
+                                                                            somatic_flag = (True if variant_type == "somatic" else False))
                 variants_novel_formatted = helper_functions.coordinates_check(variants_novel_formatted)
-                submit_variants(variants_novel_formatted, variant_status="novel")
+                submit_variants(variants_novel_formatted, variant_type, variant_status="novel")
             else:
                 print("[INFO]: No novel variants to be uploaded.")
             
@@ -221,9 +248,10 @@ if __name__ == "__main__":
             if len(variants_update) != 0:
                 print(len(variants_update))
                 # print(variants_update)
-                variants_update_formatted = helper_functions.convert_variant(variants_update, date_of_extraction, to_update=True)
+                variants_update_formatted = helper_functions.convert_variant(variants_update, date_of_extraction, to_update=True,
+                                                                             somatic_flag = (True if variant_type == "somatic" else False))
                 variants_update_formatted = helper_functions.coordinates_check(variants_update_formatted)
-                submit_variants(variants_update_formatted, variant_status="update")
+                submit_variants(variants_update_formatted, variant_type, variant_status="update")
             else:
                 print("[INFO]: No variants to be updated.")
             
@@ -231,13 +259,17 @@ if __name__ == "__main__":
             if haplotypes_dict:
                 haplos_novel, haplos_update = check_for_updates.compare_haplotypes(haplotypes_dict, args.reference_haplotypes)
                 if len(haplos_novel) != 0:
-                    haplotypes_upload_formatted = helper_functions.convert_haplotype(haplos_novel, date_of_extraction)
-                    submit_variants(haplotypes_upload_formatted, variant_status="novel", haplo = True)
+                    haplotypes_upload_formatted = helper_functions.convert_haplotype(haplos_novel, date_of_extraction, to_update= False,
+                                                                                     somatic_flag = (True if variant_type == "somatic" else False))
+                    submit_variants(haplotypes_upload_formatted, variant_type, variant_status="novel", haplo = True)
+                    helper_functions.write_haplotypes_file(haplos_novel, f"temp\{variant_type}_haplotypes_uploaded.txt", date_of_extraction)
                 else:
                     print("[INFO]: No novel haplotypes to be uploaded")
                 if len(haplos_update) != 0:
-                    haplotypes_update_formatted = helper_functions.convert_haplotype(haplos_update, date_of_extraction)
-                    submit_variants(haplotypes_update_formatted, variant_status="update", haplo = True)
+                    haplotypes_update_formatted = helper_functions.convert_haplotype(haplos_update, date_of_extraction, to_update= True,
+                                                                                     somatic_flag = (True if variant_type == "somatic" else False))
+                    submit_variants(haplotypes_update_formatted, variant_type, variant_status="update", haplo = True)
+                    helper_functions.write_haplotypes_file(haplos_update, f"temp\{variant_type}_haplotypes_uploaded.txt", date_of_extraction)
                 else:
                     print("[INFO]: No haplotypes to be updated.")
         else:
@@ -247,5 +279,15 @@ if __name__ == "__main__":
                 input_entries = []
                 for variant in csv_reader:
                     input_entries.append(variant)
-            variants_list = helper_functions.convert_variant(input_entries, date_of_extraction)
-            submit_variants(variants_list, variant_status="novel")
+            variants_list = helper_functions.convert_variant(input_entries, date_of_extraction, 
+                                                             somatic_flag = (True if variant_type == "somatic" else False))
+            submit_variants(variants_list, variant_type, variant_status="novel")
+            print(f"[INFO]: Looking at haplotypes...")
+            if haplotypes_dict:
+                haplotypes_upload_formatted = helper_functions.convert_haplotype(haplotypes_dict, date_of_extraction, to_update= False,
+                                                                                 somatic_flag = (True if variant_type == "somatic" else False))
+                submit_variants(haplotypes_upload_formatted, variant_type, variant_status="novel", haplo = True)
+                helper_functions.write_haplotypes_file(haplotypes_dict, f"temp\{variant_type}_haplotypes_uploaded.txt", date_of_extraction)
+            else:
+                print("[INFO]: No haplotypes to be uploaded.")
+

@@ -8,7 +8,6 @@ from pathlib import Path
 import helper_functions, check_input, check_for_updates
 from datetime import datetime
 
-os.makedirs(".\\temp\\")
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Provide data to be uploaded and reference file.")

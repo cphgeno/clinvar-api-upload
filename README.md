@@ -1,7 +1,7 @@
 # ClinVar API upload
 [ClinVar](https://www.ncbi.nlm.nih.gov/clinvar/) is a public archive of genetic variants and phenotypes, including variant classification with respect to health and disease.
 
-This repository includes scripts to enable easy extraction of classified variants from a [VarSeq Assessment Catalog](https://www.goldenhelix.com/products/VarSeq/) and submission to ClinVar via their [API](https://www.ncbi.nlm.nih.gov/clinvar/docs/api_http/).
+This repository includes scripts to enable easy extraction of classified variants from a [VarSeq Assessment Catalog](https://www.goldenhelix.com/products/VarSeq/) and submission to ClinVar via their [API](https://www.ncbi.nlm.nih.gov/clinvar/docs/api_http/) for both germline and somatic variants.
 
 
 ## Usage
@@ -45,7 +45,7 @@ Obtain txt file with variants from the VarSeq Catalog
 
 # Transform the .tsf to .txt format, i.e.
 /path/to/varseq/latest_version/gautil writetxt output_annotation_file.tsf
-# Then transfer the resulting .txt file to the local working directory
+# Then transfer the resulting .txt file to the working directory
 ```
 
 #### 2. Parse and upload variants through the API
@@ -78,7 +78,7 @@ Output produced by `main.py`
 python3 main.py --help
 
 # Example submission with dry run
-python3 main.py -f ..\data\output_annotation_file.txt --reference_variants ..\data\variants_uploaded_annotated_{date}.tsv --reference_haplotypes ..\data\haplotypes_uploaded_annotated_{date}.tsv --date_of_extraction {date} -n
+python3 main.py -f ..\data\germline_catalogue.txt --reference_variants ..\data\germline_variants_uploaded_annotated_{date}.tsv --reference_haplotypes ..\data\germline_haplotypes_uploaded_annotated_{date}.tsv --date_of_extraction {date} -n
 ```
 
 #### 3. Data annotation
@@ -100,7 +100,7 @@ python3 check_submission.py -i SUB00000001 -n
 
 > **N.B.:** The final annotated file must be stored in the data folder in order to be used for the following upload of variants!
 
-Upon successful submission, the variants in the `temp\output_annotation_file_cleaned.txt` variants file must be annotated with the corresponding ClinVar SCV accession numbers. This allows to later update and delete variants via their SCV accession number.
+Upon successful submission, the variants in the `temp\germline_catalogue_cleaned.txt` variants file must be annotated with the corresponding ClinVar SCV accession numbers. This allows to later update and delete variants via their SCV accession number.
 
 The SCV accession numbers are stored in the summary report json files; in order to annotate the cleaned variants file, the original variants *txt* file is to be passed together with `summaries_list_novel.txt` and the initial reference file from the GitLab repository (stored in `data` folder). This process has to be executed separately for variants and haplotypes with the corresponding references. 
 
@@ -119,9 +119,9 @@ python3 annotate_data.py --help
 
 # Example use
 # variants
-python3 annotate_data.py -s ..\temp\summaries_list_novel.txt -f ..\temp\output_annotation_file_cleaned.txt -r ..\data\variants_uploaded_annotated_{date}.tsv --date_of_extraction {date}
+python3 annotate_data.py -s ..\temp\summaries_list_novel.txt -f ..\temp\germline_catalogue_cleaned.txt -r ..\data\germline_variants_uploaded_annotated_{date}.tsv --date_of_extraction {date}
 # haplotypes
-python3 annotate_data.py -s ..\temp\summaries_list_novel.txt -f ..\temp\haplotypes_uploaded.txt -r ..\data\haplotypes_uploaded_annotated_{date}.tsv -t haplotypes --date_of_extraction {date}
+python3 annotate_data.py -s ..\temp\summaries_list_novel.txt -f ..\temp\germline_haplotypes_uploaded.txt -r ..\data\germline_haplotypes_uploaded_annotated_{date}.tsv -t haplotypes --date_of_extraction {date}
 ```
 
 
@@ -135,4 +135,4 @@ python main.py -f ..\data\variants_to_delete.txt -s delete
 
 
 ## Questions
-All enquiries about the code can be directed to @lprob
+All enquiries about the code can be directed to luca.robinson@regionh.dk

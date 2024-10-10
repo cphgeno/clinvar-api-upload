@@ -8,6 +8,7 @@ BASE_PAIRS = {"A": "T", "C": "G", "G": "C", "T": "A"}
 SUB_URL = "https://submit.ncbi.nlm.nih.gov/api/v1/submissions"
 TEST_URL = "https://submit.ncbi.nlm.nih.gov/apitest/v1/submissions"
 
+SOMATIC_CLASSIFICATION_MAPPING = {"Pathogenic": "Oncogenic", "Likely pathogenic": "Likely oncogenic", "Uncertain significance": "Uncertain significance", "Likely benign":"Likely benign", "Benign": "Benign"}
 
 def get_reverse_strand(sequence):
     """Function to obtain the reverse-complement of a genomic sequence.
@@ -175,7 +176,7 @@ def multiple_hgvs(sample):
         return single_variants
 
 
-def convert_variant(variants_entries, date_of_upload, to_update=False):
+def convert_variant(variants_entries, date_of_upload, somatic_flag, to_update=False):
     """Function to convert the variant into the form required for ClinVar upload.
 
     The initial dictionary read from the input file is converted to another dictionary reflecting the keys specified by the Submission API (https://www.ncbi.nlm.nih.gov/clinvar/docs/api_http/).
@@ -193,32 +194,49 @@ def convert_variant(variants_entries, date_of_upload, to_update=False):
         variant["Classification"] = variant["Classification"].capitalize()
         if variant["Classification"] == "Unknown significance":
             variant["Classification"] = "Uncertain significance"  # ClinVar requirement
+        if somatic_flag:
+            variant["Classification"] = SOMATIC_CLASSIFICATION_MAPPING[variant["Classification"]]
+        
+        condition_second_field = (
+            {"id": "C0027651"} if somatic_flag else
+            {"name": (
+                "not specified"
+                if variant["Classification"] in ["Benign", "Likely benign", "Uncertain significance"]
+                else "not provided"
+            )}
+        )
+        
         sample_variant = {
-            "clinicalSignificance": {
-                "clinicalSignificanceDescription": variant["Classification"],
+            ("germlineClassification" 
+             if not somatic_flag
+             else "oncogenicityClassification"): {
+                ("germlineClassificationDescription"
+                 if not somatic_flag
+                 else "oncogenicityClassificationDescription"): variant["Classification"],
                 "dateLastEvaluated": date_of_upload,
             },
             "conditionSet": {
                 "condition": [
                     {
                         "db": "MedGen",
-                        "name": (
-                            "not specified"
-                            if variant["Classification"]
-                            in ["Benign", "Likely benign", "Uncertain significance"]
-                            else "not provided"
-                        ),
+                        **condition_second_field
                     }
                 ]
             },
             "observedIn": [
                 {
-                    "affectedStatus": "unknown",  # we choose 'unknown' as default
-                    "alleleOrigin": "germline",  # we choose 'germline' as default
+                    "affectedStatus": (
+                        "unknown" if not somatic_flag # we choose 'unknown' as default
+                        else "yes" 
+                    ),
+                    "alleleOrigin": (
+                        "germline" if not somatic_flag
+                        else "somatic"
+                    ),
                     "collectionMethod": "clinical testing",  # we choose 'clinical testing' as default
                 }
             ],
-            "recordStatus": "novel" if not to_update else "update",  # we choose 'novel' as default
+            "recordStatus": "novel" if not to_update else "update",
             "variantSet": {
                 "variant": [
                     {
@@ -277,7 +295,7 @@ def format_haplo_variants(variants_list):
     return output_variants
 
 
-def convert_haplotype(haplo_entries, date_of_upload):
+def convert_haplotype(haplo_entries, date_of_upload, somatic_flag, to_update):
     """Function to convert the haplotypes into the form required for ClinVar upload.
 
     The initial dictionary read from the input file is converted to another dictionary reflecting the keys specified by the Submission API (https://www.ncbi.nlm.nih.gov/clinvar/docs/api_http/).
@@ -292,41 +310,63 @@ def convert_haplotype(haplo_entries, date_of_upload):
     haplotypes_list = []
 
     for haplo in haplo_entries:
-        associated_variants, haplo_hgvsc, haplo_hgvsp, haplo_classification, upload_type, last_edited_date = haplo_entries[haplo].strip(" ").split("; ")
+        if to_update:
+            associated_variants, haplo_hgvsc, haplo_hgvsp, haplo_classification, upload_type, last_edited_date, haplo_SCV = haplo_entries[haplo].strip(" ").split("; ")
+        else:
+            associated_variants, haplo_hgvsc, haplo_hgvsp, haplo_classification, upload_type, last_edited_date = haplo_entries[haplo].strip(" ").split("; ")
         haplo_classification = haplo_classification.capitalize()
         if haplo_classification == "Unknown significance":
             haplo_classification = "Uncertain significance"
+        if somatic_flag:
+            haplo_classification = SOMATIC_CLASSIFICATION_MAPPING[haplo_classification]
+        
+        condition_second_field = (
+            {"id": "C0027651"} if somatic_flag else
+            {"name": (
+                "not specified"
+                if haplo_classification in ["Benign", "Likely benign", "Uncertain significance"]
+                else "not provided"
+            )}
+        )
+
         sample_variant = {
-            "clinicalSignificance": {
-                "clinicalSignificanceDescription": haplo_classification,
+            ("germlineClassification" 
+             if not somatic_flag
+             else "oncogenicityClassification"): {
+                ("germlineClassificationDescription"
+                 if not somatic_flag
+                 else "oncogenicityClassificationDescription"): haplo_classification,
                 "dateLastEvaluated": date_of_upload,
             },
             "conditionSet": {
                 "condition": [
                     {
                         "db": "MedGen",
-                        "name": (
-                            "not specified"
-                            if haplo_classification
-                            in ["Benign", "Likely benign", "Uncertain significance"]
-                            else "not provided"
-                        ),
+                        **condition_second_field
                     }
                 ]
             },
             "observedIn": [
                 {
-                    "affectedStatus": "unknown",  # we choose 'unknown' as default
-                    "alleleOrigin": "germline",  # we choose 'germline' as default (from BCM)
-                    "collectionMethod": "clinical testing",  # we choose 'clinical testing' as default
+                    "affectedStatus": (
+                        "unknown" if not somatic_flag
+                        else "yes" 
+                    ),
+                    "alleleOrigin": (
+                        "germline" if not somatic_flag
+                        else "somatic"
+                    ),
+                    "collectionMethod": "clinical testing",
                 }
             ],
-            "recordStatus": "novel",  # we choose 'novel' as default
+            "recordStatus":"novel" if not to_update else "update",
             "haplotypeSet": {
                 "hgvs": haplo_hgvsc,
                 "variants": format_haplo_variants(associated_variants)
             },
         }
+        if to_update:  # if variants to be updated then SCV field required
+            sample_variant["clinvarAccession"] = haplo_SCV
         haplotypes_list.append(sample_variant)
     return haplotypes_list
 
@@ -341,7 +381,7 @@ def write_haplotypes_file(haplotypes_dict, file_path, date_of_upload):
     """
     lines = []
     for haplotype in haplotypes_dict:
-        associated_variants, haplo_hgvsc, haplo_hgvsp, haplo_classification, upload_type, last_edited = haplotypes_dict[haplotype].strip(" ").split("; ")
+        associated_variants, haplo_hgvsc, haplo_hgvsp, haplo_classification, upload_type, last_edited = haplotypes_dict[haplotype].strip(" ").split("; ")[:6] #if to be updated skip SCV and add later again with annotation
         lines.append([haplo_hgvsc, haplo_classification, associated_variants, haplo_hgvsp, date_of_upload])
     if os.path.exists(file_path):
         with open(file_path, 'a', newline='', encoding='utf-8') as tsvfile:

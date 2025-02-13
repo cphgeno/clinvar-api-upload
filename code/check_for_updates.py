@@ -16,7 +16,7 @@ def read_file(file_variants):
             file_entries.append(new_variant)
     return file_entries
 
-def compare_variants(new_variants, old_variants, date_of_upload):
+def compare_variants(new_variants, old_variants, date_of_upload, haplo = False):
     """Function to compare the new variants from the input file to the reference file.
 
     If a variant in the input file is present in the reference file the "Last Edited" date is checked.
@@ -37,27 +37,30 @@ def compare_variants(new_variants, old_variants, date_of_upload):
     variants_update = []
     variants_upload = []
     for new_variant in new_entries:
-        new_variant_coords = "\t".join(
-            [
-                new_variant["#Chromosome"],
-                new_variant["Start"],
-                new_variant["Stop"],
-                new_variant["Ref/Alt"],
-            ]
-        )
+        if not haplo:
+            new_variant_coords = "\t".join(
+                [
+                    new_variant["#Chromosome"],
+                    new_variant["Start"],
+                    new_variant["Stop"],
+                    new_variant["Ref/Alt"],
+                ]
+            )
         to_update = False
         up_to_date = False
         for old_variant in old_entries:
-            old_variant_coords = "\t".join(
-                [
-                    old_variant["#Chromosome"],
-                    old_variant["Start"],
-                    old_variant["Stop"],
-                    old_variant["Ref/Alt"],
-                ]
-            )
-            if (new_variant["hgvs c."] == old_variant["hgvs c."] != "") or (
-                new_variant_coords == old_variant_coords
+            if not haplo:
+                old_variant_coords = "\t".join(
+                    [
+                        old_variant["#Chromosome"],
+                        old_variant["Start"],
+                        old_variant["Stop"],
+                        old_variant["Ref/Alt"],
+                    ]
+                )
+            if (
+                new_variant["hgvs c."] == old_variant["hgvs c."] != "") or (
+                not haplo and new_variant_coords == old_variant_coords
             ):
                 if new_variant["Last Edited"] <= old_variant["Last Edited"]:
                     up_to_date = True

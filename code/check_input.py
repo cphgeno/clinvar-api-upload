@@ -300,26 +300,29 @@ def clean_data(input_file):
                 csv_writer.writerow(v2)
 
     # write haplotypes file, same format as variants for upload with same function
-    with open(output_file_haplo, encoding="utf-8", mode="w") as haplo_tsv:
-        csv_writer = csv.DictWriter(
-            haplo_tsv, fieldnames=['hgvs c.', 'Classification', 'Notes', 'hgvs p.', 'Gene Names', 'Kriterier', 'Last Edited'], delimiter="\t"
-        )
-        csv_writer.writeheader()
+    if not haplotypes_dict:
+        output_file_haplo = None
+    else:
+        with open(output_file_haplo, encoding="utf-8", mode="w") as haplo_tsv:
+            csv_writer = csv.DictWriter(
+                haplo_tsv, fieldnames=['hgvs c.', 'Classification', 'Notes', 'hgvs p.', 'Gene Names', 'Kriterier', 'Last Edited'], delimiter="\t"
+            )
+            csv_writer.writeheader()
 
-        for haplo_hgvs, variant in haplotypes_dict.items():
-            merge_info = re.search(r'\[MERGE:(.+)\]', variant["Notes"]).group(1)
-            merge_info_mod = merge_info.replace("&gt;", ">")
-            associated_variants, haplo_hgvsc, haplo_hgvsp, haplo_classification, upload_type = merge_info_mod.strip(" ").split("; ")
+            for haplo_hgvs, variant in haplotypes_dict.items():
+                merge_info = re.search(r'\[MERGE:(.+)\]', variant["Notes"]).group(1)
+                merge_info_mod = merge_info.replace("&gt;", ">")
+                associated_variants, haplo_hgvsc, haplo_hgvsp, haplo_classification, upload_type = merge_info_mod.strip(" ").split("; ")
 
-            csv_writer.writerow({
-                'hgvs c.': haplo_hgvs, 
-                'Classification': haplo_classification,
-                'Notes': variant['Notes'],
-                'hgvs p.': haplo_hgvsp,
-                'Gene Names': variant['Gene Names'],
-                'Kriterier': variant['Kriterier'],
-                'Last Edited': variant['Last Edited']
-            })
+                csv_writer.writerow({
+                    'hgvs c.': haplo_hgvs, 
+                    'Classification': haplo_classification,
+                    'Notes': variant['Notes'],
+                    'hgvs p.': haplo_hgvsp,
+                    'Gene Names': variant['Gene Names'],
+                    'Kriterier': variant['Kriterier'],
+                    'Last Edited': variant['Last Edited']
+                })
 
     return output_file, output_file_haplo
 

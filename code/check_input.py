@@ -231,10 +231,11 @@ def clean_data(input_file):
 
     Return:
         output_file: modified/cleaned tsv file with the variants.
-        haplotypes_dict: dictionary of the haplotypes' data extracted from the syntax in the catalogue's "INFO" field."""
+        output_file_haplo: tsv file with haplotypes only information for parsing to later functions."""
 
     file_basename = input_file.split("\\")[-1].split(".")[0]
     output_file = f'temp\{file_basename}_cleaned.txt'
+    output_file_haplo = f'temp\{file_basename}_haplotypes_cleaned.txt'
 
     with open(input_file, encoding="utf-8", mode="r") as original_tsv, open(
         output_file, encoding="utf-8", mode="w", newline=""
@@ -260,7 +261,8 @@ def clean_data(input_file):
                 associated_variants, haplo_hgvsc, haplo_hgvsp, haplo_classification, upload_type = merge_info_mod.strip(" ").split("; ")
                 last_edited_date = variant["Last Edited"]
                 if haplo_hgvsc not in haplotypes_dict:
-                    haplotypes_dict[haplo_hgvsc] = "; ".join([merge_info_mod, last_edited_date])
+                    # haplotypes_dict[haplo_hgvsc] = "; ".join([merge_info_mod, last_edited_date])
+                    haplotypes_dict[haplo_hgvsc] = variant # does not account for difference in last edited for both variants, possibly to be changed later
                 if upload_type == "individual-merged":
                     # variant to be uploaded individually AND as part of haplotype
                     csv_writer.writerow(variant)
@@ -296,4 +298,28 @@ def clean_data(input_file):
                     check_outfile, fieldnames=csv_reader.fieldnames, delimiter="\t"
                 )
                 csv_writer.writerow(v2)
-    return output_file, haplotypes_dict
+
+    # write haplotypes file, same format as variants for upload with same function
+    with open(output_file_haplo, encoding="utf-8", mode="w") as haplo_tsv:
+        csv_writer = csv.DictWriter(
+            haplo_tsv, fieldnames=['hgvs c.', 'Classification', 'Notes', 'hgvs p.', 'Gene Names', 'Kriterier', 'Last Edited'], delimiter="\t"
+        )
+        csv_writer.writeheader()
+
+        for haplo_hgvs, variant in haplotypes_dict.items():
+            merge_info = re.search(r'\[MERGE:(.+)\]', variant["Notes"]).group(1)
+            merge_info_mod = merge_info.replace("&gt;", ">")
+            associated_variants, haplo_hgvsc, haplo_hgvsp, haplo_classification, upload_type = merge_info_mod.strip(" ").split("; ")
+
+            csv_writer.writerow({
+                'hgvs c.': haplo_hgvs, 
+                'Classification': haplo_classification,
+                'Notes': variant['Notes'],
+                'hgvs p.': haplo_hgvsp,
+                'Gene Names': variant['Gene Names'],
+                'Kriterier': variant['Kriterier'],
+                'Last Edited': variant['Last Edited']
+            })
+
+    return output_file, output_file_haplo
+

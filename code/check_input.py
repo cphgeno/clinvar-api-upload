@@ -1,5 +1,6 @@
 import csv, copy
 import re
+from collections import defaultdict
 
 
 def separate_variants(two_variants):
@@ -218,6 +219,39 @@ def extract_variants(variant):
             return single_variant
 
 
+def remove_duplicate_rows(file_path, delimiter='\t'):
+    """
+    Function to remove potential duplicated rows in the inputted file.
+
+    Parameters:
+        file_path: initial tsv file containing the variants.
+    
+    Return:
+        unique_rows: list of unique dictionary variants to be parsed through.
+        fieldnames: header from the input file to be used for cleaned file writing.
+    """
+
+    unique_rows = []
+    seen = defaultdict(int)  # Dictionary to track occurrences
+    
+    with open(file_path, 'r', newline='', encoding='utf-8') as file:
+        csv_reader = csv.DictReader(file, delimiter=delimiter)
+        fieldnames = csv_reader.fieldnames
+        rows = list(csv_reader)
+        
+        for row in rows:
+            key = (row['hgvs c.'], '<->'.join([row['#Chromosome'], row['Start'], row['Stop'], row['Ref/Alt']]))
+            seen[key] += 1
+            if seen[key] > 1:
+                continue
+            else:
+                unique_rows.append(row)
+    
+    print(f'Number or duplicated variants removed from input file: {len(rows) - len(unique_rows)}')
+    
+    return unique_rows, fieldnames
+
+
 def clean_data(input_file):
     """Function that allows to clean the inputted tsv file.
     The function parses through the variants and executes three main functionalities:
@@ -237,19 +271,18 @@ def clean_data(input_file):
     output_file = f'temp/{file_basename}_cleaned.txt'
     output_file_haplo = f'temp/{file_basename}_haplotypes_cleaned.txt'
 
-    with open(input_file, encoding="utf-8", mode="r") as original_tsv, open(
-        output_file, encoding="utf-8", mode="w", newline=""
-    ) as outfile:
-        csv_reader = csv.DictReader(original_tsv, delimiter="\t")
+    variants_reader, fieldnames = remove_duplicate_rows(input_file)
+
+    with open(output_file, encoding="utf-8", mode="w", newline="") as outfile:
         csv_writer = csv.DictWriter(
-            outfile, fieldnames=csv_reader.fieldnames, delimiter="\t"
+            outfile, fieldnames = fieldnames, delimiter="\t"
         )
         csv_writer.writeheader()
 
         triple_variants = []
         multiple_hgvs = []
         haplotypes_dict = {}
-        for variant in csv_reader:
+        for variant in variants_reader:
             if len(variant["Ref/Alt"].split("/")) == 3:
                 triple_variants.append(variant)
             elif "," in variant["hgvs c."]:
@@ -279,7 +312,7 @@ def clean_data(input_file):
             output_file, encoding="utf-8", mode="a", newline=""
         ) as check_outfile:
             csv_writer = csv.DictWriter(
-                check_outfile, fieldnames=csv_reader.fieldnames, delimiter="\t"
+                check_outfile, fieldnames= fieldnames, delimiter="\t"
             )
             csv_writer.writerows(new_variants)
     
@@ -291,7 +324,7 @@ def clean_data(input_file):
                     output_file, encoding="utf-8", mode="a", newline=""
                 ) as check_outfile:
                     csv_writer = csv.DictWriter(
-                        check_outfile, fieldnames=csv_reader.fieldnames, delimiter="\t"
+                        check_outfile, fieldnames= fieldnames, delimiter="\t"
                     )
                     csv_writer.writerow(v1)
             if check_variant(v2, output_file):
@@ -299,7 +332,7 @@ def clean_data(input_file):
                     output_file, encoding="utf-8", mode="a", newline=""
                 ) as check_outfile:
                     csv_writer = csv.DictWriter(
-                        check_outfile, fieldnames=csv_reader.fieldnames, delimiter="\t"
+                        check_outfile, fieldnames= fieldnames, delimiter="\t"
                     )
                     csv_writer.writerow(v2)
 
@@ -324,7 +357,6 @@ def clean_data(input_file):
                     'Notes': variant['Notes'],
                     'hgvs p.': haplo_hgvsp,
                     'Gene Names': variant['Gene Names'],
-                    'Kriterier': variant['Kriterier'],
                     'Last Edited': variant['Last Edited']
                 })
 

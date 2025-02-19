@@ -233,9 +233,9 @@ def clean_data(input_file):
         output_file: modified/cleaned tsv file with the variants.
         output_file_haplo: tsv file with haplotypes only information for parsing to later functions."""
 
-    file_basename = input_file.split("\\")[-1].split(".")[0]
-    output_file = f'temp\{file_basename}_cleaned.txt'
-    output_file_haplo = f'temp\{file_basename}_haplotypes_cleaned.txt'
+    file_basename = input_file.split("/")[-1].split(".")[0]
+    output_file = f'temp/{file_basename}_cleaned.txt'
+    output_file_haplo = f'temp/{file_basename}_haplotypes_cleaned.txt'
 
     with open(input_file, encoding="utf-8", mode="r") as original_tsv, open(
         output_file, encoding="utf-8", mode="w", newline=""

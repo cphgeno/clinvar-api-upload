@@ -231,8 +231,8 @@ if __name__ == "__main__":
         sys.exit(1)
     
     if args.output_file is None:
-        args.output_file = Path(f'data\{"somatic" if args.somatic else "germline"}_{args.variant_type}_uploaded_annotated_{date_of_interest}.tsv')
+        args.output_file = Path(f'data/{"somatic" if args.somatic else "germline"}_{args.variant_type}_uploaded_annotated_{date_of_interest}.tsv')
     else: #check it is saved in 'data' folder
-        if args.output_file.split("\\")[0] != "data":
-            args.output_file = f'data\\{args.output_file}'
+        if args.output_file.split("/")[0] != "data":
+            args.output_file = f'data/{args.output_file}'
     annotate_file(args.summary_files, args.input_file, args.reference_file, args.output_file, args.variant_type, date_of_interest)

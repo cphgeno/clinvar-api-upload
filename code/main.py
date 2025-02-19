@@ -165,16 +165,16 @@ def submit_variants(variants_list, variant_type, variant_status, haplo = False):
                 output_file.write(response.text)
         else:
             data = json.dumps(variants_batches, indent=2)
-            with open(f'temp\\{sub_id}-{variant_type}_{"variants" if not haplo else "haplotypes"}_{variant_status}.json', mode="w") as output_file:
+            with open(f'temp/{sub_id}-{variant_type}_{"variants" if not haplo else "haplotypes"}_{variant_status}.json', mode="w") as output_file:
                 header = dict(response.headers)
                 header["Total number of variants submitted"] = variants_number
                 output_file.write(json.dumps(header, indent=2))
                 output_file.write(data)
-            report_json = f'temp\\{sub_id}-summary-report.json {"variants" if not haplo else "haplotypes"}'
+            report_json = f'temp/{sub_id}-summary-report.json {"variants" if not haplo else "haplotypes"}'
             summaries_list.append(report_json)
         # if haplo and variant_status=="novel":
-        #     helper_functions.write_haplotypes_file(variants_list, f"temp\{variant_type}_haplotypes_uploaded.txt", date_of_extraction)
-        file_path = f'temp\{variant_type}_summaries_list_{variant_status}.txt'
+        #     helper_functions.write_haplotypes_file(variants_list, f"temp/{variant_type}_haplotypes_uploaded.txt", date_of_extraction)
+        file_path = f'temp/{variant_type}_summaries_list_{variant_status}.txt'
         with open(file_path, mode = 'a' if os.path.exists(file_path) else 'w') as summaries_file:
             #writes file with summary jsons path to be used for annotation
             for json_file in summaries_list:
@@ -215,8 +215,8 @@ if __name__ == "__main__":
         print("Error: Date of extraction must be in format %YYYY-%mm-%dd")
         sys.exit(1)
     
-    if not os.path.exists(".\\temp\\"):
-        os.makedirs(".\\temp\\")
+    if not os.path.exists("./temp/"):
+        os.makedirs("./temp/")
 
     if args.status == "delete":
         print("[INFO]: Submitting variants to be deleted...")
@@ -262,14 +262,14 @@ if __name__ == "__main__":
                     haplotypes_upload_formatted = helper_functions.convert_haplotype(haplos_novel, date_of_extraction, to_update= False,
                                                                                      somatic_flag = (True if variant_type == "somatic" else False))
                     submit_variants(haplotypes_upload_formatted, variant_type, variant_status="novel", haplo = True)
-                    helper_functions.write_haplotypes_file(haplos_novel, f"temp\{variant_type}_haplotypes_uploaded.txt", date_of_extraction)
+                    helper_functions.write_haplotypes_file(haplos_novel, f"temp/{variant_type}_haplotypes_uploaded.txt", date_of_extraction)
                 else:
                     print("[INFO]: No novel haplotypes to be uploaded")
                 if len(haplos_update) != 0:
                     haplotypes_update_formatted = helper_functions.convert_haplotype(haplos_update, date_of_extraction, to_update= True,
                                                                                      somatic_flag = (True if variant_type == "somatic" else False))
                     submit_variants(haplotypes_update_formatted, variant_type, variant_status="update", haplo = True)
-                    helper_functions.write_haplotypes_file(haplos_update, f"temp\{variant_type}_haplotypes_uploaded.txt", date_of_extraction)
+                    helper_functions.write_haplotypes_file(haplos_update, f"temp/{variant_type}_haplotypes_uploaded.txt", date_of_extraction)
                 else:
                     print("[INFO]: No haplotypes to be updated.")
         else:
@@ -287,7 +287,7 @@ if __name__ == "__main__":
                 haplotypes_upload_formatted = helper_functions.convert_haplotype(haplotypes_dict, date_of_extraction, to_update= False,
                                                                                  somatic_flag = (True if variant_type == "somatic" else False))
                 submit_variants(haplotypes_upload_formatted, variant_type, variant_status="novel", haplo = True)
-                helper_functions.write_haplotypes_file(haplotypes_dict, f"temp\{variant_type}_haplotypes_uploaded.txt", date_of_extraction)
+                helper_functions.write_haplotypes_file(haplotypes_dict, f"temp/{variant_type}_haplotypes_uploaded.txt", date_of_extraction)
             else:
                 print("[INFO]: No haplotypes to be uploaded.")
 

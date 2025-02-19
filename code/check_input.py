@@ -269,35 +269,39 @@ def clean_data(input_file):
             else:
                 csv_writer.writerow(variant)
         new_variants = []
-    for variant in multiple_hgvs:
-        new_variant = extract_variants(variant)
-        new_variants.append(new_variant)
+    
+    if multiple_hgvs:
+        for variant in multiple_hgvs:
+            new_variant = extract_variants(variant)
+            new_variants.append(new_variant)
 
-    with open(
-        output_file, encoding="utf-8", mode="a", newline=""
-    ) as check_outfile:
-        csv_writer = csv.DictWriter(
-            check_outfile, fieldnames=csv_reader.fieldnames, delimiter="\t"
-        )
-        csv_writer.writerows(new_variants)
-    for variant in triple_variants:
-        v1, v2 = separate_variants(variant)
-        if check_variant(v1, output_file):
-            with open(
-                output_file, encoding="utf-8", mode="a", newline=""
-            ) as check_outfile:
-                csv_writer = csv.DictWriter(
-                    check_outfile, fieldnames=csv_reader.fieldnames, delimiter="\t"
-                )
-                csv_writer.writerow(v1)
-        if check_variant(v2, output_file):
-            with open(
-                output_file, encoding="utf-8", mode="a", newline=""
-            ) as check_outfile:
-                csv_writer = csv.DictWriter(
-                    check_outfile, fieldnames=csv_reader.fieldnames, delimiter="\t"
-                )
-                csv_writer.writerow(v2)
+        with open(
+            output_file, encoding="utf-8", mode="a", newline=""
+        ) as check_outfile:
+            csv_writer = csv.DictWriter(
+                check_outfile, fieldnames=csv_reader.fieldnames, delimiter="\t"
+            )
+            csv_writer.writerows(new_variants)
+    
+    if triple_variants:
+        for variant in triple_variants:
+            v1, v2 = separate_variants(variant)
+            if check_variant(v1, output_file):
+                with open(
+                    output_file, encoding="utf-8", mode="a", newline=""
+                ) as check_outfile:
+                    csv_writer = csv.DictWriter(
+                        check_outfile, fieldnames=csv_reader.fieldnames, delimiter="\t"
+                    )
+                    csv_writer.writerow(v1)
+            if check_variant(v2, output_file):
+                with open(
+                    output_file, encoding="utf-8", mode="a", newline=""
+                ) as check_outfile:
+                    csv_writer = csv.DictWriter(
+                        check_outfile, fieldnames=csv_reader.fieldnames, delimiter="\t"
+                    )
+                    csv_writer.writerow(v2)
 
     # write haplotypes file, same format as variants for upload with same function
     if not haplotypes_dict:

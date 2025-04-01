@@ -76,37 +76,3 @@ def compare_variants(new_variants, old_variants, date_of_upload, haplo = False):
         if not to_update and not up_to_date:  # it's a new variant (no SCV)
             variants_upload.append(new_variant)
     return variants_upload, variants_update
-
-def compare_haplotypes(new_haplos, old_haplos):
-    """Function to check whether variants are to be uploaded as novel haplotypes or updated in ClinVar.
-    The function checks if 
-    
-    Parameters:
-        new_haplos: list containing haplotypes from the input file.
-        old_haplos: list containing haplotypes from the reference file.
-    
-    Output:
-        haplos_novel: list containing haplotypes to be uploaded as novel.
-        haplos_update: list containing haplotypes to be updated."""
-    
-    old_haplos = read_file(old_haplos)
-    haplos_novel = {}
-    haplos_update = {}
-    for new_haplo in new_haplos:
-        to_update = False
-        up_to_date = False
-        new_associated_variants, new_haplo_hgvsc, new_haplo_hgvsp, new_haplo_classification, new_upload_type, new_last_edited = new_haplos[new_haplo].strip(" ").split("; ")
-        for old_haplo in old_haplos:
-            if new_haplo == old_haplo["hgvs c."]: #new_haplo is hgvs c., key of the haplotype dictionary
-                old_haplo_hgvsc, old_haplo_classification, old_associated_variants, old_haplo_hgvsp, old_last_edited, old_haplo_SCV = old_haplo.values()
-                if new_last_edited <= old_last_edited: #up to date
-                    up_to_date = True
-                    break
-                else: 
-                    new_haplo_info = "; ".join([new_haplos[new_haplo], old_haplo_SCV])
-                    to_update = True
-                    haplos_update[new_haplo] = new_haplo_info
-                    break
-        if not to_update and not up_to_date: # new haplotype
-            haplos_novel[new_haplo] = new_haplos[new_haplo]
-    return haplos_novel, haplos_update

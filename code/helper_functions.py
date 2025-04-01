@@ -47,6 +47,9 @@ def fix_coordinates(sample):
     if (
         sample["variantSet"]["variant"][0]["chromosomeCoordinates"]["start"]
         == sample["variantSet"]["variant"][0]["chromosomeCoordinates"]["stop"]
+    ) or (
+        int(sample["variantSet"]["variant"][0]["chromosomeCoordinates"]["stop"])
+        - int(sample["variantSet"]["variant"][0]["chromosomeCoordinates"]["start"]) == 1
     ):
         if ref_allele == "-":
             sample["variantSet"]["variant"][0]["variantType"] = "Insertion"

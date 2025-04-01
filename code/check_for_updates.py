@@ -63,6 +63,7 @@ def compare_variants(new_variants, old_variants, date_of_upload, haplo = False):
                 not haplo and new_variant_coords == old_variant_coords
             ):
                 if new_variant["Last Edited"] <= old_variant["Last Edited"]:
+                    # if date_of_upload <= old_variant["Last Edited"]: # uncomment this line to FORCE UPDATE of all variants
                     up_to_date = True
                     break
                 else:

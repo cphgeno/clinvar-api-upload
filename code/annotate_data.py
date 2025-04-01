@@ -4,7 +4,9 @@ import csv
 import argparse
 from pathlib import Path
 import datetime
+import re
 import sys
+import helper_functions
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Provide cleaned data file and summary json for variant annotation.")
@@ -69,7 +71,7 @@ def get_new_annotation(summary_report, annotation_dict, date_string):
     Return:
         annotation_dict: updated dictionary containing for each submitted variant the corresponding SCV accession number from the current report summary json file parsed.
     """
-    with open(summary_report) as submission_response:  # json to be read
+    with open(summary_report) as submission_response: # json to be read
         data = json.load(submission_response)
         print(f'Annotating from date: {data["submissionDate"]}, submission: {summary_report}')
     for submission in data["submissions"]:
@@ -112,8 +114,11 @@ def annotate_from_ref(reference_file):
                     ID = line["hgvs c."].split(",")[0] #if multiple hgvs c. are present, the first is considered the correct one by default and matching to the reference file
                 else:
                     ID = get_id(line)
+                if re.search(r"\(\d+\)", ID):
+                    ID = helper_functions.fix_hgvs(ID, line["Ref/Alt"].split("/")[1])
                 SCV = line["SCV"]
                 partial_annotation[ID] = {"SCV": SCV, "Last Edited": line["Last Edited"]}
+                # partial_annotation[ID] = {"SCV": SCV, "Last Edited": date_string}
     return partial_annotation
 
 
@@ -127,7 +132,7 @@ def get_id(variant):
     
     Return:
         variant_check: variant id in correct format.
-        """
+    """
     ref, alt = variant["Ref/Alt"].split("/")
     variant_check = "_".join(
         [
@@ -182,12 +187,6 @@ def annotate_file(summary_reports, input_file, reference_file, output_file, vari
     for f in get_summary_filepaths(summary_reports, variant_type):
         annotation = get_new_annotation(f, annotation, date_string)
     all_rows = []
-    if variant_type == "haplotypes": #read from the old annotated file the previous uploaded haplotypes to then be copied in the new file
-        if reference_file:
-            with open(reference_file, encoding="utf-8", mode="r+") as old_haplotypes:
-                csv_reader = csv.DictReader(old_haplotypes, delimiter="\t")
-                for row in csv_reader:
-                    all_rows.append(row)
     with open(input_file, encoding="utf-8", mode="r+") as non_annotated:
         csv_reader = csv.DictReader(non_annotated, delimiter="\t")
         if "SCV" not in csv_reader.fieldnames:
@@ -196,7 +195,11 @@ def annotate_file(summary_reports, input_file, reference_file, output_file, vari
         for row in csv_reader:
             if row["hgvs c."]: #if hgvs c. field present for the variant this is used to find corresponding SCV number
                 hgvs_field = row["hgvs c."].split(",")[0]
-                if hgvs_field in annotation.keys():
+                hgvs_field_new = hgvs_field
+                if re.search(r"\(\d+\)", hgvs_field):
+                    hgvs_field_new = helper_functions.fix_hgvs(hgvs_field, row["Ref/Alt"].split("/")[1])
+                    updated_hgvs = True
+                if (hgvs_field in annotation.keys()) or (hgvs_field_new in annotation.keys()):
                     row["SCV"] = annotation[hgvs_field]["SCV"]
                     row["Last Edited"] = annotation[hgvs_field]["Last Edited"]
                     row["hgvs c."] = hgvs_field
@@ -231,8 +234,8 @@ if __name__ == "__main__":
         sys.exit(1)
     
     if args.output_file is None:
-        args.output_file = Path(f'data\{"somatic" if args.somatic else "germline"}_{args.variant_type}_uploaded_annotated_{date_of_interest}.tsv')
+        args.output_file = Path(f'data/{"somatic" if args.somatic else "germline"}_{args.variant_type}_uploaded_annotated_{date_of_interest}.tsv')
     else: #check it is saved in 'data' folder
-        if args.output_file.split("\\")[0] != "data":
-            args.output_file = f'data\\{args.output_file}'
+        if args.output_file.split("/")[0] != "data":
+            args.output_file = f'data/{args.output_file}'
     annotate_file(args.summary_files, args.input_file, args.reference_file, args.output_file, args.variant_type, date_of_interest)

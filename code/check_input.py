@@ -1,5 +1,6 @@
 import csv, copy
 import re
+from collections import defaultdict
 
 
 def separate_variants(two_variants):
@@ -218,6 +219,39 @@ def extract_variants(variant):
             return single_variant
 
 
+def remove_duplicate_rows(file_path, delimiter='\t'):
+    """
+    Function to remove potential duplicated rows in the inputted file.
+
+    Parameters:
+        file_path: initial tsv file containing the variants.
+    
+    Return:
+        unique_rows: list of unique dictionary variants to be parsed through.
+        fieldnames: header from the input file to be used for cleaned file writing.
+    """
+
+    unique_rows = []
+    seen = defaultdict(int)  # Dictionary to track occurrences
+    
+    with open(file_path, 'r', newline='', encoding='utf-8') as file:
+        csv_reader = csv.DictReader(file, delimiter=delimiter)
+        fieldnames = csv_reader.fieldnames
+        rows = list(csv_reader)
+        
+        for row in rows:
+            key = (row['hgvs c.'], '<->'.join([row['#Chromosome'], row['Start'], row['Stop'], row['Ref/Alt']]))
+            seen[key] += 1
+            if seen[key] > 1:
+                continue
+            else:
+                unique_rows.append(row)
+    
+    print(f'Number or duplicated variants removed from input file: {len(rows) - len(unique_rows)}')
+    
+    return unique_rows, fieldnames
+
+
 def clean_data(input_file):
     """Function that allows to clean the inputted tsv file.
     The function parses through the variants and executes three main functionalities:
@@ -231,24 +265,24 @@ def clean_data(input_file):
 
     Return:
         output_file: modified/cleaned tsv file with the variants.
-        haplotypes_dict: dictionary of the haplotypes' data extracted from the syntax in the catalogue's "INFO" field."""
+        output_file_haplo: tsv file with haplotypes only information for parsing to later functions."""
 
-    file_basename = input_file.split("\\")[-1].split(".")[0]
-    output_file = f'temp\{file_basename}_cleaned.txt'
+    file_basename = input_file.split("/")[-1].split(".")[0]
+    output_file = f'temp/{file_basename}_cleaned.txt'
+    output_file_haplo = f'temp/{file_basename}_haplotypes_cleaned.txt'
 
-    with open(input_file, encoding="utf-8", mode="r") as original_tsv, open(
-        output_file, encoding="utf-8", mode="w", newline=""
-    ) as outfile:
-        csv_reader = csv.DictReader(original_tsv, delimiter="\t")
+    variants_reader, fieldnames = remove_duplicate_rows(input_file)
+
+    with open(output_file, encoding="utf-8", mode="w", newline="") as outfile:
         csv_writer = csv.DictWriter(
-            outfile, fieldnames=csv_reader.fieldnames, delimiter="\t"
+            outfile, fieldnames = fieldnames, delimiter="\t"
         )
         csv_writer.writeheader()
 
         triple_variants = []
         multiple_hgvs = []
         haplotypes_dict = {}
-        for variant in csv_reader:
+        for variant in variants_reader:
             if len(variant["Ref/Alt"].split("/")) == 3:
                 triple_variants.append(variant)
             elif "," in variant["hgvs c."]:
@@ -260,40 +294,71 @@ def clean_data(input_file):
                 associated_variants, haplo_hgvsc, haplo_hgvsp, haplo_classification, upload_type = merge_info_mod.strip(" ").split("; ")
                 last_edited_date = variant["Last Edited"]
                 if haplo_hgvsc not in haplotypes_dict:
-                    haplotypes_dict[haplo_hgvsc] = "; ".join([merge_info_mod, last_edited_date])
+                    # haplotypes_dict[haplo_hgvsc] = "; ".join([merge_info_mod, last_edited_date])
+                    haplotypes_dict[haplo_hgvsc] = variant # does not account for difference in last edited for both variants, possibly to be changed later
                 if upload_type == "individual-merged":
                     # variant to be uploaded individually AND as part of haplotype
                     csv_writer.writerow(variant)
             else:
                 csv_writer.writerow(variant)
         new_variants = []
-    for variant in multiple_hgvs:
-        new_variant = extract_variants(variant)
-        new_variants.append(new_variant)
+    
+    if multiple_hgvs:
+        for variant in multiple_hgvs:
+            new_variant = extract_variants(variant)
+            new_variants.append(new_variant)
 
-    with open(
-        output_file, encoding="utf-8", mode="a", newline=""
-    ) as check_outfile:
-        csv_writer = csv.DictWriter(
-            check_outfile, fieldnames=csv_reader.fieldnames, delimiter="\t"
-        )
-        csv_writer.writerows(new_variants)
-    for variant in triple_variants:
-        v1, v2 = separate_variants(variant)
-        if check_variant(v1, output_file):
-            with open(
-                output_file, encoding="utf-8", mode="a", newline=""
-            ) as check_outfile:
-                csv_writer = csv.DictWriter(
-                    check_outfile, fieldnames=csv_reader.fieldnames, delimiter="\t"
-                )
-                csv_writer.writerow(v1)
-        if check_variant(v2, output_file):
-            with open(
-                output_file, encoding="utf-8", mode="a", newline=""
-            ) as check_outfile:
-                csv_writer = csv.DictWriter(
-                    check_outfile, fieldnames=csv_reader.fieldnames, delimiter="\t"
-                )
-                csv_writer.writerow(v2)
-    return output_file, haplotypes_dict
+        with open(
+            output_file, encoding="utf-8", mode="a", newline=""
+        ) as check_outfile:
+            csv_writer = csv.DictWriter(
+                check_outfile, fieldnames= fieldnames, delimiter="\t"
+            )
+            csv_writer.writerows(new_variants)
+    
+    if triple_variants:
+        for variant in triple_variants:
+            v1, v2 = separate_variants(variant)
+            if check_variant(v1, output_file):
+                with open(
+                    output_file, encoding="utf-8", mode="a", newline=""
+                ) as check_outfile:
+                    csv_writer = csv.DictWriter(
+                        check_outfile, fieldnames= fieldnames, delimiter="\t"
+                    )
+                    csv_writer.writerow(v1)
+            if check_variant(v2, output_file):
+                with open(
+                    output_file, encoding="utf-8", mode="a", newline=""
+                ) as check_outfile:
+                    csv_writer = csv.DictWriter(
+                        check_outfile, fieldnames= fieldnames, delimiter="\t"
+                    )
+                    csv_writer.writerow(v2)
+
+    # write haplotypes file, same format as variants for upload with same function
+    if not haplotypes_dict:
+        output_file_haplo = None
+    else:
+        with open(output_file_haplo, encoding="utf-8", mode="w") as haplo_tsv:
+            csv_writer = csv.DictWriter(
+                haplo_tsv, fieldnames=['hgvs c.', 'Classification', 'Notes', 'hgvs p.', 'Gene Names', 'Kriterier', 'Last Edited'], delimiter="\t"
+            )
+            csv_writer.writeheader()
+
+            for haplo_hgvs, variant in haplotypes_dict.items():
+                merge_info = re.search(r'\[MERGE:(.+)\]', variant["Notes"]).group(1)
+                merge_info_mod = merge_info.replace("&gt;", ">")
+                associated_variants, haplo_hgvsc, haplo_hgvsp, haplo_classification, upload_type = merge_info_mod.strip(" ").split("; ")
+
+                csv_writer.writerow({
+                    'hgvs c.': haplo_hgvs, 
+                    'Classification': haplo_classification,
+                    'Notes': variant['Notes'],
+                    'hgvs p.': haplo_hgvsp,
+                    'Gene Names': variant['Gene Names'],
+                    'Last Edited': variant['Last Edited']
+                })
+
+    return output_file, output_file_haplo
+

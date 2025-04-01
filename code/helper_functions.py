@@ -47,6 +47,9 @@ def fix_coordinates(sample):
     if (
         sample["variantSet"]["variant"][0]["chromosomeCoordinates"]["start"]
         == sample["variantSet"]["variant"][0]["chromosomeCoordinates"]["stop"]
+    ) or (
+        int(sample["variantSet"]["variant"][0]["chromosomeCoordinates"]["stop"])
+        - int(sample["variantSet"]["variant"][0]["chromosomeCoordinates"]["start"]) == 1
     ):
         if ref_allele == "-":
             sample["variantSet"]["variant"][0]["variantType"] = "Insertion"
@@ -275,126 +278,6 @@ def convert_variant(variants_entries, date_of_upload, somatic_flag, to_update=Fa
         variants_list.append(sample_variant)
     return variants_list
 
-
-def format_haplo_variants(variants_list):
-    """Function to obtain the list of variants that are part of the haplotype and need to be included in the haplotypes submission.
-    The syntax on VarSeq should result in the hgvs c. to be present for all of them.
-    
-    Parameters:
-        variants_list: list of variants extracted from the VarSeq haplotype's syntax.
-    
-    Returns:
-        output_variants: formatted list of variants for haplotype submission.
-    """
-
-    output_variants = []
-    for hgvsc in variants_list.split(", "):
-        formatted_variant = {}
-        formatted_variant["hgvs"] = hgvsc
-        output_variants.append(formatted_variant)
-    return output_variants
-
-
-def convert_haplotype(haplo_entries, date_of_upload, somatic_flag, to_update):
-    """Function to convert the haplotypes into the form required for ClinVar upload.
-
-    The initial dictionary read from the input file is converted to another dictionary reflecting the keys specified by the Submission API (https://www.ncbi.nlm.nih.gov/clinvar/docs/api_http/).
-
-    Parameters:
-        haplo_entries: haplotypes to be formatted according to ClinVar API schema.
-        date_of_upload: date of upload to be included in submission of haplotype.
-
-    Returns:
-        haplotypes_list: list of haplotypes correctly formatted for submission."""
-
-    haplotypes_list = []
-
-    for haplo in haplo_entries:
-        if to_update:
-            associated_variants, haplo_hgvsc, haplo_hgvsp, haplo_classification, upload_type, last_edited_date, haplo_SCV = haplo_entries[haplo].strip(" ").split("; ")
-        else:
-            associated_variants, haplo_hgvsc, haplo_hgvsp, haplo_classification, upload_type, last_edited_date = haplo_entries[haplo].strip(" ").split("; ")
-        haplo_classification = haplo_classification.capitalize()
-        if haplo_classification == "Unknown significance":
-            haplo_classification = "Uncertain significance"
-        if somatic_flag:
-            haplo_classification = SOMATIC_CLASSIFICATION_MAPPING[haplo_classification]
-        
-        condition_second_field = (
-            {"id": "C0027651"} if somatic_flag else
-            {"name": (
-                "not specified"
-                if haplo_classification in ["Benign", "Likely benign", "Uncertain significance"]
-                else "not provided"
-            )}
-        )
-
-        sample_variant = {
-            ("germlineClassification" 
-             if not somatic_flag
-             else "oncogenicityClassification"): {
-                ("germlineClassificationDescription"
-                 if not somatic_flag
-                 else "oncogenicityClassificationDescription"): haplo_classification,
-                "dateLastEvaluated": date_of_upload,
-            },
-            "conditionSet": {
-                "condition": [
-                    {
-                        "db": "MedGen",
-                        **condition_second_field
-                    }
-                ]
-            },
-            "observedIn": [
-                {
-                    "affectedStatus": (
-                        "unknown" if not somatic_flag
-                        else "yes" 
-                    ),
-                    "alleleOrigin": (
-                        "germline" if not somatic_flag
-                        else "somatic"
-                    ),
-                    "collectionMethod": "clinical testing",
-                }
-            ],
-            "recordStatus":"novel" if not to_update else "update",
-            "haplotypeSet": {
-                "hgvs": haplo_hgvsc,
-                "variants": format_haplo_variants(associated_variants)
-            },
-        }
-        if to_update:  # if variants to be updated then SCV field required
-            sample_variant["clinvarAccession"] = haplo_SCV
-        haplotypes_list.append(sample_variant)
-    return haplotypes_list
-
-def write_haplotypes_file(haplotypes_dict, file_path, date_of_upload):
-    """Function for writing the list of uploaded haplotypes to a txt file.
-    This file is created if not already present, otherwise the newly uploaded haplotypes are appended to the existing file.
-
-    Parameters:
-        haplotypes_dict: dictionary of haplotypoes to be stored in the file.
-        file_path: output's filepath.
-        date_of_upload: date of upload needed for annotation.
-    """
-    lines = []
-    for haplotype in haplotypes_dict:
-        associated_variants, haplo_hgvsc, haplo_hgvsp, haplo_classification, upload_type, last_edited = haplotypes_dict[haplotype].strip(" ").split("; ")[:6] #if to be updated skip SCV and add later again with annotation
-        lines.append([haplo_hgvsc, haplo_classification, associated_variants, haplo_hgvsp, date_of_upload])
-    if os.path.exists(file_path):
-        with open(file_path, 'a', newline='', encoding='utf-8') as tsvfile:
-            writer = csv.writer(tsvfile, delimiter='\t')
-            writer.writerows(lines)
-    else:
-        with open(file_path, 'w', newline='', encoding='utf-8') as tsvfile:
-            writer = csv.writer(tsvfile, delimiter='\t')
-            print("File created")
-            header = ["hgvs c.", "Classification", "Variants", "hgvs p.", "Last Edited"]
-            writer.writerow(header)
-            writer.writerows(lines)
-    return
 
 def format_deletion(scv_entries):
     """Function responsible for formatting the variants that need to be deleted by the SCV accession number.

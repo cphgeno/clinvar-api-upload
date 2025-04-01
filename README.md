@@ -1,7 +1,10 @@
 # ClinVar API upload
 [ClinVar](https://www.ncbi.nlm.nih.gov/clinvar/) is a public archive of genetic variants and phenotypes, including variant classification with respect to health and disease.
 
-This repository includes scripts to enable easy extraction of classified variants from a [VarSeq Assessment Catalog](https://www.goldenhelix.com/products/VarSeq/) and submission to ClinVar via their [API](https://www.ncbi.nlm.nih.gov/clinvar/docs/api_http/) for both germline and somatic variants.
+The scripts included in this repository facilitate extraction of classified variants from a [VarSeq Assessment Catalog](https://www.goldenhelix.com/products/VarSeq/) and submission to ClinVar via their [API](https://www.ncbi.nlm.nih.gov/clinvar/docs/api_http/) for both germline and somatic variants.
+
+[[_TOC_]]
+
 
 
 ## Usage
@@ -36,14 +39,12 @@ ClinVar performs a weekly (or otherwise bi-weekly) upload on Sundays, meaning th
 
 
 ##### Exract variants
-Obtain txt file with variants from the VarSeq Catalog
+Obtain txt file with variants from the VarSeq Catalog; remember to use the most recent VarSeq version for gautil.
 ```shell
-# Remember to use the most recent varseq version of gautil
-
 # Extract variants from the database using this command
-# /path/to/varseq/latest_version/gautil writetsf <txsource_url> output_annotation_file.tsf
+/path/to/varseq/latest_version/gautil writetsf <txsource_url> output_annotation_file.tsf
 
-# Transform the .tsf to .txt format, i.e.
+# Transform the .tsf to .txt format
 /path/to/varseq/latest_version/gautil writetxt output_annotation_file.tsf
 # Then transfer the resulting .txt file to the working directory
 ```
@@ -54,23 +55,22 @@ Obtain txt file with variants from the VarSeq Catalog
 
 ##### Obtain API key
 * If your organisation is not registered yet, obtain the key for the API [here](https://www.ncbi.nlm.nih.gov/clinvar/docs/api_http/).
-* Save the key locally in the cloned repository as "clinvar.key" (see script default = `".\clinvar.key"`).
+* Save the key locally in the cloned repository as "clinvar.key" (see script default = `"./clinvar.key"`).
 
 ##### Run `main` script
 Use the `main.py` script to parse and upload variants.
 
-The script creates a cleaned version of the catalogue file, `temp\output_annotation_file_cleaned.txt`, removing duplicates and handling variants present on more than one alternate allele (only one allele can be uploaded to ClinVar at a time). The cleaned file is also required later for the annotation of variants in the final step. 
+The script creates a cleaned version of the catalogue file, `temp/output_annotation_file_cleaned.txt`, removing duplicates and handling variants present on more than one alternate allele (only one allele can be uploaded to ClinVar at a time). The cleaned file is also required later for the annotation of variants in the final step. 
 
 Finally, the list of submission IDs is stored in files as records. When the variants are to be updated, the `check_for_updates.py` script allows to divide the list of variants into those that have already been uploaded, and check if they require to be updated, and the novel variants. These are then uploaded separately.
 
 Output produced by `main.py`
 * Successful submission:
-
     * a `temp` folder containing all the following files;
     * cleaned inputted file of variants;
     * file containing all uploaded, formatted haplotypes;
     * individual *json* files, one per batch, containing the submitted data, saved under the submission ID of each batch, indicating whether the data are variants or haplotypes and if novel or updates (e.g. `SUBid_[variants|haplotypes]_[novel|update].json`);
-    * a `summaries_list_[novel|update].txt` file is generated. It contains the paths to the summary report jsons of all batches submitted succesfully. The "novel" file is used to [annotate the data](#annotate-data), following the json retrieval.
+    * a `summaries_list_[novel|update].txt` file is generated. It contains the paths to the summary report jsons of all batches submitted succesfully. The "novel" file is used to [annotate the data](#3-data-annotation), following the json retrieval.
 * Failed submission: a file containing the errors that led to the failure will be created for each failed batch. In this case, the failed batch is not submitted to the API.
 
 ```shell
@@ -78,7 +78,7 @@ Output produced by `main.py`
 python3 main.py --help
 
 # Example submission with dry run
-python3 main.py -f ..\data\germline_catalogue.txt --reference_variants ..\data\germline_variants_uploaded_annotated_{date}.tsv --reference_haplotypes ..\data\germline_haplotypes_uploaded_annotated_{date}.tsv --date_of_extraction {date} -n
+python3 main.py -f ../data/germline_catalogue.txt --reference_variants ../data/germline_variants_uploaded_annotated_{date}.tsv --reference_haplotypes ../data/germline_haplotypes_uploaded_annotated_{date}.tsv --date_of_extraction {date} -n
 ```
 
 #### 3. Data annotation
@@ -100,7 +100,7 @@ python3 check_submission.py -i SUB00000001 -n
 
 > **N.B.:** The final annotated file must be stored in the data folder in order to be used for the following upload of variants!
 
-Upon successful submission, the variants in the `temp\germline_catalogue_cleaned.txt` variants file must be annotated with the corresponding ClinVar SCV accession numbers. This allows to later update and delete variants via their SCV accession number.
+Upon successful submission, the variants in the `temp/output_annotation_file_cleaned.txt` variants file must be annotated with the corresponding ClinVar SCV accession numbers. This allows us to later update or delete variants via the SCV accession number.
 
 The SCV accession numbers are stored in the summary report json files; in order to annotate the cleaned variants file, the original variants *txt* file is to be passed together with `summaries_list_novel.txt` and the initial reference file from the GitLab repository (stored in `data` folder). This process has to be executed separately for variants and haplotypes with the corresponding references. 
 
@@ -109,7 +109,7 @@ The *--date_of_extraction* parameter must be set to the date of extraction of th
 Steps to follow to ensure correct data annotation following a live run:
 * Dowload of summary report json files to `temp` directory (refer to [Check submission status](#check-submission-status));
 * Run the `annotate_data.py` script (twice if haplotypes were also uploaded);
-* When the files have been annotated, store them (`data\haplotypes_uploaded_annotated_{new-date}.txt`, `data\variants_uploaded_annotated_{new-date}.txt`) in the data folder, replacing the previous reference files.
+* When the files have been annotated, store them (`data/haplotypes_uploaded_annotated_{new-date}.txt`, `data/variants_uploaded_annotated_{new-date}.txt`) in the data folder, replacing the previous reference files.
 
 These steps are essential to keep track of each upload and the variants already present on the online database.
 
@@ -119,9 +119,9 @@ python3 annotate_data.py --help
 
 # Example use
 # variants
-python3 annotate_data.py -s ..\temp\summaries_list_novel.txt -f ..\temp\germline_catalogue_cleaned.txt -r ..\data\germline_variants_uploaded_annotated_{date}.tsv --date_of_extraction {date}
+python3 annotate_data.py -s ../temp/summaries_list_novel.txt -f ../temp/germline_catalogue_cleaned.txt -r ../data/germline_variants_uploaded_annotated_{date}.tsv --date_of_extraction {date}
 # haplotypes
-python3 annotate_data.py -s ..\temp\summaries_list_novel.txt -f ..\temp\germline_haplotypes_uploaded.txt -r ..\data\germline_haplotypes_uploaded_annotated_{date}.tsv -t haplotypes --date_of_extraction {date}
+python3 annotate_data.py -s ../temp/summaries_list_novel.txt -f ../temp/germline_haplotypes_uploaded.txt -r ../data/germline_haplotypes_uploaded_annotated_{date}.tsv -t haplotypes --date_of_extraction {date}
 ```
 
 
@@ -130,9 +130,11 @@ To delete / remove from ClinVar any variants previously submitted, the `main.py`
 
 ```shell
 # Example use
-python main.py -f ..\data\variants_to_delete.txt -s delete
+python main.py -f ../data/variants_to_delete.txt -s delete
 ```
 
+## Tips
+If there are major changes to code and need to update all records then simply change all variants' "Last Edited" value field to the date of upload, then run code (there is a commented line in the code to do this, also in the annotation step).
 
 ## Questions
 All enquiries about the code can be directed to luca.robinson@regionh.dk

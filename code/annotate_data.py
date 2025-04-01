@@ -4,7 +4,9 @@ import csv
 import argparse
 from pathlib import Path
 import datetime
+import re
 import sys
+import helper_functions
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Provide cleaned data file and summary json for variant annotation.")
@@ -112,8 +114,11 @@ def annotate_from_ref(reference_file):
                     ID = line["hgvs c."].split(",")[0] #if multiple hgvs c. are present, the first is considered the correct one by default and matching to the reference file
                 else:
                     ID = get_id(line)
+                if re.search(r"\(\d+\)", ID):
+                    ID = helper_functions.fix_hgvs(ID, line["Ref/Alt"].split("/")[1])
                 SCV = line["SCV"]
                 partial_annotation[ID] = {"SCV": SCV, "Last Edited": line["Last Edited"]}
+                # partial_annotation[ID] = {"SCV": SCV, "Last Edited": date_string}
     return partial_annotation
 
 
@@ -196,7 +201,11 @@ def annotate_file(summary_reports, input_file, reference_file, output_file, vari
         for row in csv_reader:
             if row["hgvs c."]: #if hgvs c. field present for the variant this is used to find corresponding SCV number
                 hgvs_field = row["hgvs c."].split(",")[0]
-                if hgvs_field in annotation.keys():
+                hgvs_field_new = hgvs_field
+                if re.search(r"\(\d+\)", hgvs_field):
+                    hgvs_field_new = helper_functions.fix_hgvs(hgvs_field, row["Ref/Alt"].split("/")[1])
+                    updated_hgvs = True
+                if (hgvs_field in annotation.keys()) or (hgvs_field_new in annotation.keys()):
                     row["SCV"] = annotation[hgvs_field]["SCV"]
                     row["Last Edited"] = annotation[hgvs_field]["Last Edited"]
                     row["hgvs c."] = hgvs_field

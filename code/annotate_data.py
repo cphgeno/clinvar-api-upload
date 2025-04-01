@@ -71,7 +71,7 @@ def get_new_annotation(summary_report, annotation_dict, date_string):
     Return:
         annotation_dict: updated dictionary containing for each submitted variant the corresponding SCV accession number from the current report summary json file parsed.
     """
-    with open(summary_report) as submission_response:  # json to be read
+    with open(summary_report) as submission_response: # json to be read
         data = json.load(submission_response)
         print(f'Annotating from date: {data["submissionDate"]}, submission: {summary_report}')
     for submission in data["submissions"]:
@@ -132,7 +132,7 @@ def get_id(variant):
     
     Return:
         variant_check: variant id in correct format.
-        """
+    """
     ref, alt = variant["Ref/Alt"].split("/")
     variant_check = "_".join(
         [
@@ -187,12 +187,6 @@ def annotate_file(summary_reports, input_file, reference_file, output_file, vari
     for f in get_summary_filepaths(summary_reports, variant_type):
         annotation = get_new_annotation(f, annotation, date_string)
     all_rows = []
-    if variant_type == "haplotypes": #read from the old annotated file the previous uploaded haplotypes to then be copied in the new file
-        if reference_file:
-            with open(reference_file, encoding="utf-8", mode="r+") as old_haplotypes:
-                csv_reader = csv.DictReader(old_haplotypes, delimiter="\t")
-                for row in csv_reader:
-                    all_rows.append(row)
     with open(input_file, encoding="utf-8", mode="r+") as non_annotated:
         csv_reader = csv.DictReader(non_annotated, delimiter="\t")
         if "SCV" not in csv_reader.fieldnames:

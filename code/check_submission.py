@@ -16,7 +16,7 @@ def parse_arguments():
         "--key",
         help='Path to "clinvar.key" file',
         type=Path,
-        default=Path("./clinvar.key"),
+        default=Path("../clinvar.key"),
     )
     parser.add_argument(
         "-n",

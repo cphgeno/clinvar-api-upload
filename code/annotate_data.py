@@ -3,7 +3,6 @@ import json
 import csv
 import argparse
 from pathlib import Path
-import datetime
 import re
 import sys
 import helper_functions
@@ -195,11 +194,9 @@ def annotate_file(summary_reports, input_file, reference_file, output_file, vari
         for row in csv_reader:
             if row["hgvs c."]: #if hgvs c. field present for the variant this is used to find corresponding SCV number
                 hgvs_field = row["hgvs c."].split(",")[0]
-                hgvs_field_new = hgvs_field
                 if re.search(r"\(\d+\)", hgvs_field):
-                    hgvs_field_new = helper_functions.fix_hgvs(hgvs_field, row["Ref/Alt"].split("/")[1])
-                    updated_hgvs = True
-                if (hgvs_field in annotation.keys()) or (hgvs_field_new in annotation.keys()):
+                    hgvs_field = helper_functions.fix_hgvs(hgvs_field, row["Ref/Alt"].split("/")[1])
+                if hgvs_field in annotation.keys():
                     row["SCV"] = annotation[hgvs_field]["SCV"]
                     row["Last Edited"] = annotation[hgvs_field]["Last Edited"]
                     row["hgvs c."] = hgvs_field
@@ -234,8 +231,8 @@ if __name__ == "__main__":
         sys.exit(1)
     
     if args.output_file is None:
-        args.output_file = Path(f'data/{"somatic" if args.somatic else "germline"}_{args.variant_type}_uploaded_annotated_{date_of_interest}.tsv')
+        args.output_file = Path(f'../data/{"somatic" if args.somatic else "germline"}_{args.variant_type}_uploaded_annotated_{date_of_interest}.tsv')
     else: #check it is saved in 'data' folder
         if args.output_file.split("/")[0] != "data":
-            args.output_file = f'data/{args.output_file}'
+            args.output_file = f'../data/{args.output_file}'
     annotate_file(args.summary_files, args.input_file, args.reference_file, args.output_file, args.variant_type, date_of_interest)

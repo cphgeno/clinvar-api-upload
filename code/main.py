@@ -26,7 +26,7 @@ def parse_arguments():
         "--key",
         help='Path to "clinvar.key" file',
         type=Path,
-        default=Path("./clinvar.key")
+        default=Path("../clinvar.key")
     )
     parser.add_argument(
         "-n",
@@ -107,12 +107,11 @@ def submit_request(list_of_variants, submission_url, headers, variant_type, dele
     return response
 
 
-
 def submit_variants(variants_list, variant_type, variant_status, haplo = False):
     """Wrapper function responible for uploading the novel or updated variants.
 
     Parameters:
-        varinats_list: list of variants to be uploaded.
+        variants_list: list of variants to be uploaded.
         variant_status: string indicating whether the variants are novel or to be updated.
         haplo: Boolean value to define whether variants or haplotypes are to be uploaded."""
 
@@ -130,9 +129,12 @@ def submit_variants(variants_list, variant_type, variant_status, haplo = False):
     if variant_status == "delete":
         response = submit_request(variants_list, submission_url, headers, variant_type, deletion = True)
         print(f"Response ({variant_status}): {response.status_code}")
-        sub_id = response.text.strip("{}").split(":")[1].strip('"')
-        print(f"Submission id: {sub_id}")
-        print(response.headers)
+        if args.dryrun and int(response.status_code) == 204:
+            print("Dry run submission successful")
+        else:
+            sub_id = response.text.strip("{}").split(":")[1].strip('"')
+            print(f"Submission id: {sub_id}")
+            print(response.headers)
         return
     
     print(f"[INFO]: Submitting variants for upload ({variant_status})...")
@@ -146,15 +148,20 @@ def submit_variants(variants_list, variant_type, variant_status, haplo = False):
         responses.append(submit_request(batch, submission_url, headers, variant_type))
     
     # -------on-screen message
-    print(f'{"Live run" if args.dryrun == False else "Dry run"} at: {submission_url}')
+    print(f'{"Live run" if not args.dryrun else "Dry run"} at: {submission_url}')
     print(f"Number variants submitted: {variants_number}")
     summaries_list = []
 
     for count, response in enumerate(responses, 1):
-        print(f"Response ({variant_status}): {response.status_code}")
+        print(f"Response ({variant_status} - batch {count}): {response.status_code}")
+
+        # change to submission schema for dry run successful status code
+        if args.dryrun and int(response.status_code) == 204:
+            print("Dry run submission successful")
+            continue
+
         sub_id = response.text.strip("{}").split(":")[1].strip('"')
-        print(f"Submission id: {sub_id}")
-        print(response.text)
+        print(f"Submission id: {sub_id} \n")
 
         if response.status_code > 201:
             with open(
@@ -172,15 +179,14 @@ def submit_variants(variants_list, variant_type, variant_status, haplo = False):
                 output_file.write(data)
             report_json = f'temp/{sub_id}-summary-report.json {"variants" if not haplo else "haplotypes"}'
             summaries_list.append(report_json)
-        file_path = f'temp/{variant_type}_summaries_list_{variant_status}.txt'
-        with open(file_path, mode = 'a' if os.path.exists(file_path) else 'w') as summaries_file:
-            #writes file with summary jsons path to be used for annotation
-            for json_file in summaries_list:
-                summaries_file.write(json_file)
-                summaries_file.write("\n")
-        print("[INFO]: Variant submission to ClinVar API completed!")
-        print("------IMPORTANT! Remember to annotate the data after successful upload------ \n \n")
-
+    file_path = f'temp/{variant_type}_summaries_list_{variant_status}.txt'
+    with open(file_path, mode = 'a' if os.path.exists(file_path) else 'w') as summaries_file:
+        #writes file with summary jsons path to be used for annotation
+        for json_file in summaries_list:
+            summaries_file.write(json_file)
+            summaries_file.write("\n")
+    print("[INFO]: Variant submission to ClinVar API completed!")
+    print("------IMPORTANT! Remember to annotate the data after successful upload------ \n \n")
 
 # ----------main execution-------------------
 if __name__ == "__main__":
@@ -266,6 +272,8 @@ if __name__ == "__main__":
                     submit_variants(haplotypes_update_formatted, variant_type, variant_status="update", haplo = True)
                 else:
                     print("[INFO]: No haplotypes to be updated.")
+            else:
+                print("[INFO]: No haplotypes to be uploaded.")
         else:
             print(f"[INFO]: Parsing through the novel variants...")
             with open(input_file, encoding="utf-8", mode="r") as tsv:
@@ -278,9 +286,13 @@ if __name__ == "__main__":
             submit_variants(variants_list, variant_type, variant_status="novel")
             print(f"[INFO]: Looking at haplotypes...")
             if haplotypes_input:
-                haplotypes_upload_formatted = helper_functions.convert_variant(haplotypes_input, date_of_extraction, to_update= False,
+                with open(haplotypes_input, encoding="utf-8", mode="r") as tsv:
+                    csv_reader = csv.DictReader(tsv, delimiter="\t")
+                    haplo_entries = []
+                    for haplo in csv_reader:
+                        haplo_entries.append(haplo)
+                haplotypes_upload_formatted = helper_functions.convert_variant(haplo_entries, date_of_extraction, to_update= False,
                                                                                  somatic_flag = (True if variant_type == "somatic" else False))
                 submit_variants(haplotypes_upload_formatted, variant_type, variant_status="novel", haplo = True)
             else:
                 print("[INFO]: No haplotypes to be uploaded.")
-

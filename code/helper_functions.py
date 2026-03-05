@@ -2,11 +2,11 @@ import copy
 import csv
 from datetime import date
 import os
-from re import sub
+import re
 
 BASE_PAIRS = {"A": "T", "C": "G", "G": "C", "T": "A"}
 SUB_URL = "https://submit.ncbi.nlm.nih.gov/api/v1/submissions"
-TEST_URL = "https://submit.ncbi.nlm.nih.gov/apitest/v1/submissions"
+TEST_URL = "https://submit.ncbi.nlm.nih.gov/api/v1/submissions/?dry-run=true"
 
 SOMATIC_CLASSIFICATION_MAPPING = {"Pathogenic": "Oncogenic", "Likely pathogenic": "Likely oncogenic", "Uncertain significance": "Uncertain significance", "Likely benign":"Likely benign", "Benign": "Benign"}
 
@@ -102,13 +102,12 @@ def fix_hgvs(hgvs, alt):
     if "(" in hgvs:
         values = hgvs.split(",")
         if len(values) == 2:
-            value1 = sub("[\(].*?[\)]", get_reverse_strand(alt), values[0])
+            value1 = re.sub(r"\(.*?\)", get_reverse_strand(alt), values[0])
             modified_hgvs.append(value1)
-            value2 = sub("[\(].*?[\)]", alt, values[1])
+            value2 = re.sub(r"\(.*?\)", alt, values[1])
             modified_hgvs.append(value2)
         else:
-            modified_hgvs.append(sub("[\(].*?[\)]", get_reverse_strand(alt), values[0]))
-        #print(f'Old hgvs c.: {hgvs} \n New hgvs c.: {",".join(modified_hgvs)}')
+            modified_hgvs.append(re.sub(r"\(.*?\)", get_reverse_strand(alt), values[0]))
     return ",".join(modified_hgvs)
 
 
@@ -195,6 +194,9 @@ def convert_variant(variants_entries, date_of_upload, somatic_flag, to_update=Fa
     variants_list = []
     for variant in variants_entries:
         variant["Classification"] = variant["Classification"].capitalize()
+        if variant["Classification"] == "Unclassified": # do not upload unclassified variants
+            print(variant)
+            continue
         if variant["Classification"] == "Unknown significance":
             variant["Classification"] = "Uncertain significance"  # ClinVar requirement
         if somatic_flag:

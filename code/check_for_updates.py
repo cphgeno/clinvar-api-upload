@@ -1,4 +1,6 @@
 import csv
+import re
+import helper_functions
 
 def read_file(file_variants):
     """Function to read the variants into a dictionary.
@@ -46,6 +48,8 @@ def compare_variants(new_variants, old_variants, date_of_upload, haplo = False):
                     new_variant["Ref/Alt"],
                 ]
             )
+        if re.search(r"\(\d+\)", new_variant["hgvs c."]):
+            new_variant["hgvs c."] = helper_functions.fix_hgvs(new_variant["hgvs c."], new_variant["Ref/Alt"].split("/")[1])
         to_update = False
         up_to_date = False
         for old_variant in old_entries:
@@ -63,7 +67,7 @@ def compare_variants(new_variants, old_variants, date_of_upload, haplo = False):
                 not haplo and new_variant_coords == old_variant_coords
             ):
                 if new_variant["Last Edited"] <= old_variant["Last Edited"]:
-                    # if date_of_upload <= old_variant["Last Edited"]: # uncomment this line to FORCE UPDATE of all variants
+                # if date_of_upload <= old_variant["Last Edited"]: # uncomment this line to FORCE UPDATE of all variants
                     up_to_date = True
                     break
                 else:
